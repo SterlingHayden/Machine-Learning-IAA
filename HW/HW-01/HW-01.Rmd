@@ -1,0 +1,258 @@
+---
+title: "HW-01"
+author: "Sterling Hayden"
+date: "2024-11-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(earth)
+library(ROCit) #ROC curve
+library(mgcv)
+```
+
+```{r}
+df_train = read.csv('insurance_t.csv')
+df_val = read.csv('insurance_v.csv')
+```
+
+### Checking for missingness
+```{r}
+# Find columns with missing data
+miss_t <- names(df_train)[colSums(is.na(df_train)) > 0]
+miss_v <- names(df_val)[colSums(is.na(df_val)) > 0]
+
+# Check if train and val are missing the same data
+print(identical(miss_t, miss_v))
+
+# Check what and how many values are missing in the train dataset
+colSums(is.na(df_train[miss_t]))
+
+```
+
+Impute median for continous varriables and a missing flag for the categorical columns
+```{r}
+# Define columns
+continuous_cols <- c("ACCTAGE", "PHONE", "POS", "POSAMT", "INVBAL", "CCBAL", "INCOME", "LORES", "HMVAL", "AGE", "CRSCORE")
+binary_cols <- c("INV", "CC", "CCPURC")
+
+# Replace 'ns' values with 'Missing', 1 with 'Instance', and 0 with 'Non-Instance' for train and val datasets
+for (col in binary_cols) {
+  df_train[[col]] <- ifelse(is.na(df_train[[col]]), "Missing",
+                            ifelse(df_train[[col]] == 1, "Instance", "Non-Instance"))
+  df_val[[col]] <- ifelse(is.na(df_val[[col]]), "Missing",
+                          ifelse(df_val[[col]] == 1, "Instance", "Non-Instance"))
+}
+
+# Impute with median and create binary flag column
+for (col in continuous_cols) {
+  median_value <- median(df_train[[col]], na.rm = TRUE)
+  # Create a binary flag variable for imputation in train dataset
+  df_train[[paste0(col, "_imputed")]] <- ifelse(is.na(df_train[[col]]), 1, 0)
+  # Impute the missing values with the median in train dataset
+  df_train[[col]][is.na(df_train[[col]])] <- median_value
+}
+
+# Repeat the same process for the validation dataset
+for (col in continuous_cols) {
+  median_value <- median(df_train[[col]], na.rm = TRUE)
+  # Create a binary flag variable for imputation in val dataset
+  df_val[[paste0(col, "_imputed")]] <- ifelse(is.na(df_val[[col]]), 1, 0)
+  # Impute the missing values with the median in val dataset
+  df_val[[col]][is.na(df_val[[col]])] <- median_value
+}
+```
+
+
+
+### MARS/EARTH algorithm
+
+```{r}
+mars1 <- earth(INS ~ ., data = df_train, glm = list(family = binomial))
+summary(mars1)
+```
+
+Varriable Importance
+```{r}
+evimp(mars1)
+```
+The more subsets (or “best models”) that a variable appears in, the more important the variable. The most import variable is SAVBAL, then CDBAL, and so on. 
+
+
+ROC Curve
+```{r}
+df_train$p_hat_EARTH <- predict(mars1, type = "response")
+logit_roc <- rocit(score = as.vector(df_train$p_hat_EARTH), class = df_train$INS)
+plot(logit_roc)
+plot(logit_roc)$optimal
+paste("AUC =",logit_roc$AUC)
+```
+
+
+
+
+### GAM algorithm
+
+```{r}
+cols_with_more_than_10 <- names(df_train)[sapply(df_train, function(col) n_distinct(col) > 10)]
+cols_with_less_than_10 <- names(df_train)[sapply(df_train, function(col) n_distinct(col) <= 10)]
+```
+
+
+```{r}
+gam1 <- mgcv::gam(INS ~ 
+                  s(ACCTAGE) + 
+                  s(DDABAL) +
+                  s(DEP) +
+                  s(DEPAMT) +
+                  s(CHECKS) +
+                  s(NSFAMT) +
+                  s(PHONE) +
+                  s(TELLER) +
+                  s(SAVBAL) +
+                  s(ATMAMT) +
+                  s(POS) +
+                  s(POSAMT) +
+                  s(CDBAL) +
+                  s(IRABAL) +
+                  s(INVBAL) +
+                  s(MMBAL) +
+                  s(CCBAL) +
+                  s(INCOME) +
+                  s(LORES) +
+                  s(HMVAL) +
+                  s(AGE) +
+                  s(CRSCORE) +
+                  factor(DDA) +
+                  factor(DIRDEP) +
+                  factor(NSF) +
+                  factor(SAV) +
+                  factor(ATM) +
+                  factor(CD) +
+                  factor(IRA) +
+                  factor(INV) +
+                  factor(MM) +
+                  factor(MMCRED) +
+                  factor(CC) +
+                  factor(CCPURC) +
+                  factor(SDB) +
+                  factor(INAREA) +
+                  factor(ACCTAGE_imputed) +
+                  factor(PHONE_imputed) +
+                  factor(POS_imputed) +
+                  factor(POSAMT_imputed) +
+                  factor(INVBAL_imputed) +
+                  factor(CCBAL_imputed) +
+                  factor(INCOME_imputed) +
+                  factor(LORES_imputed) +
+                  factor(HMVAL_imputed) +
+                  factor(AGE_imputed) +
+                  factor(CRSCORE_imputed) +
+                  factor(BRANCH),
+                  family = binomial, method = 'REML', data = df_train)
+
+save(gam1, file = "gam1.RData")
+summary(gam1)
+```
+
+penalized GAM w/ select = TRUE
+```{r}
+sel.gam2 <- mgcv::gam(INS ~ 
+                  s(ACCTAGE) + 
+                  s(DDABAL) +
+                  s(DEP) +
+                  s(DEPAMT) +
+                  s(CHECKS) +
+                  s(NSFAMT) +
+                  s(PHONE) +
+                  s(TELLER) +
+                  s(SAVBAL) +
+                  s(ATMAMT) +
+                  s(POS) +
+                  s(POSAMT) +
+                  s(CDBAL) +
+                  s(IRABAL) +
+                  s(INVBAL) +
+                  s(MMBAL) +
+                  s(CCBAL) +
+                  s(INCOME) +
+                  s(LORES) +
+                  s(HMVAL) +
+                  s(AGE) +
+                  s(CRSCORE) +
+                  factor(DDA) +
+                  factor(DIRDEP) +
+                  factor(NSF) +
+                  factor(SAV) +
+                  factor(ATM) +
+                  factor(CD) +
+                  factor(IRA) +
+                  factor(INV) +
+                  factor(MM) +
+                  factor(MMCRED) +
+                  factor(CC) +
+                  factor(CCPURC) +
+                  factor(SDB) +
+                  factor(INAREA) +
+                  factor(ACCTAGE_imputed) +
+                  factor(PHONE_imputed) +
+                  factor(POS_imputed) +
+                  factor(POSAMT_imputed) +
+                  factor(INVBAL_imputed) +
+                  factor(CCBAL_imputed) +
+                  factor(INCOME_imputed) +
+                  factor(LORES_imputed) +
+                  factor(HMVAL_imputed) +
+                  factor(AGE_imputed) +
+                  factor(CRSCORE_imputed) +
+                  factor(BRANCH),
+                  family = binomial, method = 'REML', select = TRUE, data = df_train)
+
+save(sel.gam2, file = "sel_gam2.RData")
+summary(sel.gam2)
+```
+
+
+Building a GAM w/ only the p-values > 0.05 from the full model
+```{r}
+final.gam <- mgcv::gam(INS ~ 
+                        s(ACCTAGE) + 
+                        s(DDABAL) + 
+                        s(CHECKS) +
+                        s(TELLER) + 
+                        s(SAVBAL) +
+                        s(ATMAMT) +
+                        s(CDBAL) +
+                        s(CCBAL) + 
+                        factor(DDA) +
+                        factor(NSF) +
+                        factor(CD) + 
+                        factor(IRA) + 
+                        factor(INV) +
+                        factor(MM) +
+                        factor(CC) + 
+                        factor(BRANCH),
+                  family = binomial, method = 'REML', data = df_train)
+
+save(final.gam, file = "final_gam.RData")
+summary(final_gam)
+```
+
+
+ROC Curve
+```{r}
+df_train$p_hat_GAM <- predict(final.gam, type = "response")
+logit_roc <- rocit(score = as.vector(df_train$p_hat_GAM), class = df_train$INS)
+plot(logit_roc)
+plot(logit_roc)$optimal
+paste("AUC =",logit_roc$AUC)
+```
+final.gam has AUC = 0.801639776016325
+sel.gam2 has  AUC = 0.800576402912038
+gam1 has      AUC = 0.80326497635508
+
+
+
+
