@@ -154,6 +154,7 @@ gam1 <- mgcv::gam(INS ~
                   family = binomial, method = 'REML', data = df_train)
 
 save(gam1, file = "gam1.RData")
+load("gam1.RData")
 summary(gam1)
 ```
 
@@ -252,7 +253,7 @@ paste("AUC =",logit_roc$AUC)
 final.gam has AUC = 0.801639776016325
 sel.gam2 has  AUC = 0.800576402912038
 gam1 has      AUC = 0.80326497635508
-
+earth/mars    AUC = 0.799357379760185
 
 
 
