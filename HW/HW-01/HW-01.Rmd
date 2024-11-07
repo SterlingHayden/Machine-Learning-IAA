@@ -256,19 +256,21 @@ gam1 has      AUC = 0.80326497635508
 earth/mars    AUC = 0.799357379760185
 
 
+ROC cureves overlayed for the final model and the MARS model
 ```{r}
-# Plot the first ROC curve
-plot(roc_earth, col = "blue", main = "Overlayed ROC Curves", lwd = 2, legend = FALSE)
+# Plot the first ROC curve with larger axis labels
+plot(roc_earth, col = "blue", main = "Overlayed ROC Curves", lwd = 2, legend = FALSE, YIndex = FALSE)
 
-# Overlay the second ROC curve using the lines() function
+# Overlay the second ROC curve
 lines(roc_gam$TPR ~ roc_gam$FPR, col = "red", lwd = 2)
 
-# Add a legend to distinguish the curves
-legend("bottomright", legend = c("EARTH Model", "Final/Hand Selected GAM Model"), col = c("blue", "red"), lwd = 2)
-
+# Add a legend with larger text
+legend("bottomright", legend = c("MARS Model", "Final/Hand-Selected GAM Model"), col = c("blue", "red"), lwd = 2, cex = 1.2)
 
 ```
 
+
+sorting the p-values of the full GAM model to rank which variables have the most statistical significance
 ```{r}
 # Extract the p-values for the smooth terms
 summary_gam <- summary(gam1)
@@ -290,3 +292,6 @@ sorted_p_values_parametric <- sort(p_values_parametric)
 print(sorted_p_values_parametric)
 
 ```
+
+
+
