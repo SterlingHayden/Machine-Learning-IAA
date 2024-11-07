@@ -84,10 +84,10 @@ The more subsets (or “best models”) that a variable appears in, the more imp
 ROC Curve
 ```{r}
 df_train$p_hat_EARTH <- predict(mars1, type = "response")
-logit_roc <- rocit(score = as.vector(df_train$p_hat_EARTH), class = df_train$INS)
-plot(logit_roc)
-plot(logit_roc)$optimal
-paste("AUC =",logit_roc$AUC)
+roc_earth <- rocit(score = as.vector(df_train$p_hat_EARTH), class = df_train$INS)
+plot(roc_earth)
+plot(roc_earth)$optimal
+paste("AUC =",roc_earth$AUC)
 ```
 
 
@@ -244,10 +244,10 @@ summary(final_gam)
 
 ROC Curve
 ```{r}
-df_train$p_hat_GAM <- predict(final.gam, type = "response")
-logit_roc <- rocit(score = as.vector(df_train$p_hat_GAM), class = df_train$INS)
-plot(logit_roc)
-plot(logit_roc)$optimal
+df_train$p_hat_GAM <- predict(gam1, type = "response")
+roc_gam <- rocit(score = as.vector(df_train$p_hat_GAM), class = df_train$INS)
+plot(roc_gam)
+plot(roc_gam)$optimal
 paste("AUC =",logit_roc$AUC)
 ```
 final.gam has AUC = 0.801639776016325
@@ -256,4 +256,37 @@ gam1 has      AUC = 0.80326497635508
 earth/mars    AUC = 0.799357379760185
 
 
+```{r}
+# Plot the first ROC curve
+plot(roc_earth, col = "blue", main = "Overlayed ROC Curves", lwd = 2, legend = FALSE)
 
+# Overlay the second ROC curve using the lines() function
+lines(roc_gam$TPR ~ roc_gam$FPR, col = "red", lwd = 2)
+
+# Add a legend to distinguish the curves
+legend("bottomright", legend = c("EARTH Model", "Final/Hand Selected GAM Model"), col = c("blue", "red"), lwd = 2)
+
+
+```
+
+```{r}
+# Extract the p-values for the smooth terms
+summary_gam <- summary(gam1)
+p_values_smooth <- summary_gam$s.table[, 4]
+
+# Sort the p-values in ascending order for the smooth terms
+sorted_p_values_smooth <- sort(p_values_smooth)
+
+# Print the sorted smooth term p-values
+print(sorted_p_values_smooth)
+
+# If you have parametric terms and want to sort them as well:
+p_values_parametric <- summary_gam$p.table[, 4]  # Assuming the 4th column has the p-values
+
+# Sort the p-values for the parametric terms
+sorted_p_values_parametric <- sort(p_values_parametric)
+
+# Print the sorted parametric term p-values
+print(sorted_p_values_parametric)
+
+```
