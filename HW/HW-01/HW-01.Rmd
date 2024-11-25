@@ -256,6 +256,19 @@ gam1 has      AUC = 0.80326497635508
 earth/mars    AUC = 0.799357379760185
 
 
+```{r}
+load('final_gam.RData')
+df_val$p_hat_GAM <- predict(gam1, newdata = df_val, type = "response")
+
+# Compute the ROC object for the test set
+roc_gam_test <- rocit(score = as.vector(df_val$p_hat_GAM), class = df_val$INS)
+
+auc_test <- roc_gam_test$AUC
+paste("AUC =", auc_test)
+```
+
+
+
 ROC cureves overlayed for the final model and the MARS model
 ```{r}
 # Plot the first ROC curve with larger axis labels
