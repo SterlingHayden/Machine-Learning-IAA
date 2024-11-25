@@ -90,7 +90,15 @@ plot(roc_earth)$optimal
 paste("AUC =",roc_earth$AUC)
 ```
 
+```{r}
+df_val$p_hat_EARTH <- predict(mars1, newdata = df_val, type = "response")
 
+# Compute the ROC object for the test set
+roc_EARTH_test <- rocit(score = as.vector(df_val$p_hat_EARTH), class = df_val$INS)
+
+auc_test <- roc_EARTH_test$AUC
+paste("AUC =", auc_test)
+```
 
 
 ### GAM algorithm
@@ -266,7 +274,6 @@ roc_gam_test <- rocit(score = as.vector(df_val$p_hat_GAM), class = df_val$INS)
 auc_test <- roc_gam_test$AUC
 paste("AUC =", auc_test)
 ```
-
 
 
 ROC cureves overlayed for the final model and the MARS model
